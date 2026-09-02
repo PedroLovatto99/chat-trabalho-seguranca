@@ -49,7 +49,7 @@ def unwrap_key(encrypted_key_b64: str, private_key) -> bytes:
     return private_key.decrypt(encrypted, oaep())
 
 
-async def receiver(ws, known_users: dict, private_key, incoming_keys: dict):
+async def receiver(ws, known_users: dict, private_key, incoming_keys: dict, user_id: str):
     async for raw in ws:
         data = json.loads(raw)
         msg_type = data.get("type")
@@ -58,7 +58,8 @@ async def receiver(ws, known_users: dict, private_key, incoming_keys: dict):
             known_users.clear()
             for uid, pem in data["users"].items():
                 known_users[uid] = serialization.load_pem_public_key(pem.encode())
-            print(f"\n[usuários online: {', '.join(known_users)}]\n> ", end="", flush=True)
+            others = [u for u in known_users if u != user_id]
+            print(f"\n[usuários online: {', '.join(others)}]\n> ", end="", flush=True)
 
         elif msg_type == "message":
             peer = data["from"]
@@ -71,19 +72,23 @@ async def receiver(ws, known_users: dict, private_key, incoming_keys: dict):
             print(f"\n[erro] {data['detail']}\n> ", end="", flush=True)
 
 
-async def sender(ws, known_users: dict, outgoing_keys: dict):
+async def sender(ws, known_users: dict, outgoing_keys: dict, user_id: str):
     loop = asyncio.get_event_loop()
     print("Formato: <usuario_destino> <mensagem>  |  /list")
     while True:
         line = (await loop.run_in_executor(None, input, "> ")).strip()
-        if not line: 
+        if not line:
             continue
         if line == "/list":
-            print(f"[usuários online: {', '.join(known_users)}]")
+            others = [u for u in known_users if u != user_id]
+            print(f"[usuários online: {', '.join(others)}]")
             continue
         to_user, _, text = line.partition(" ")
         if not text:
             print("[erro] use: <usuario_destino> <mensagem>")
+            continue
+        if to_user == user_id:
+            print("[erro] você não pode mandar mensagem pra si mesmo")
             continue
         if to_user not in known_users:
             print(f"[erro] usuário '{to_user}' desconhecido (use /list)")
@@ -110,8 +115,8 @@ async def main():
     async with websockets.connect(f"{SERVER_URL}/{user_id}") as ws:
         await ws.send(json.dumps({"type": "register", "public_key": public_pem}))
         await asyncio.gather(
-            receiver(ws, known_users, private_key, incoming_keys),
-            sender(ws, known_users, outgoing_keys),
+            receiver(ws, known_users, private_key, incoming_keys, user_id),
+            sender(ws, known_users, outgoing_keys, user_id),
         )
 
 
