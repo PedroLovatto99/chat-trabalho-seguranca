@@ -1,5 +1,45 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      # Role dona do schema (usada só para inicializar o banco e rodar migrations
+      # via Alembic, feito manualmente — não é usada pela API em runtime).
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Lidas pelo script em postgres-init/ para criar a role de privilégio mínimo.
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Só acessível pela própria máquina (não expõe na rede) — útil para inspecionar
+      # o banco localmente com psql/pgAdmin durante o desenvolvimento.
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   server:
     build: .
+    environment:
+      # Só a role de privilégio mínimo — o servidor nunca recebe a credencial dona
+      # do schema (essa fica só no seu .env local, para rodar migrations manualmente).
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
