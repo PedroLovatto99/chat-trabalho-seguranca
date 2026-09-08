@@ -1,13 +1,47 @@
-from fastapi import APIRouter
-from fastapi import WebSocket, WebSocketDisconnect
+import jwt
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.database import get_db
+from db.models import Usuario, UserRole
+from security.auth import decode_access_token
+
 from .connection import ConnectionManager
 
 order_router = APIRouter()
 
 manager = ConnectionManager()
 
-@order_router.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str):
+
+async def _authenticate(websocket: WebSocket, db: AsyncSession) -> Usuario | None:
+    auth_header = websocket.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+
+    try:
+        payload = decode_access_token(auth_header.removeprefix("Bearer "))
+    except jwt.PyJWTError:
+        return None
+
+    usuario = await db.get(Usuario, int(payload["sub"]))
+    if usuario is None or usuario.jti_ativo != payload.get("jti"):
+        return None
+    return usuario
+
+
+@order_router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
+    usuario = await _authenticate(websocket, db)
+    if usuario is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="não autenticado")
+        return
+    if usuario.role != UserRole.CLIENTE.value:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="papel sem permissão de chat"
+        )
+        return
+
+    user_id = usuario.username
     await manager.connect(user_id, websocket)
 
     register = await websocket.receive_json()

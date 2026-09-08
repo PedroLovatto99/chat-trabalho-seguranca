@@ -27,7 +27,7 @@ services:
     build: .
     environment:
       # Só a role de privilégio mínimo — o servidor nunca recebe a credencial dona
-      # do schema (essa fica só no seu .env local, para rodar migrations manualmente).
+      # do schema (essa só é usada pelo serviço "migrate", abaixo).
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -40,6 +40,52 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Roda as migrations do Alembic dentro de um container — não sobe com
+  # `docker compose up` (fica fora por padrão, via profile), só quando chamado
+  # explicitamente: `docker compose run --rm migrate`. Assim ninguém precisa de
+  # Python/Alembic instalado localmente, e a credencial dona do schema nunca fica
+  # no ambiente do servidor de longa duração.
+  migrate:
+    build: .
+    profiles: ["tools"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "alembic"]
+    command: ["upgrade", "head"]
+
+  # Cria a primeira conta administrador. Também fica fora do `docker compose up`
+  # (via profile) — só roda sob demanda: `docker compose run --rm seed-admin`.
+  # Usa a role de privilégio mínimo (é só um INSERT normal, não precisa da role
+  # dona do schema).
+  seed-admin:
+    build: .
+    profiles: ["tools"]
+    environment:
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["python", "seed_admin.py"]
 
 volumes:
   pgdata:

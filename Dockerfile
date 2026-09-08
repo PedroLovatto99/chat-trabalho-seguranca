@@ -5,11 +5,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py ./
+COPY main.py alembic.ini seed_admin.py ./
 COPY config ./config
 COPY db ./db
 COPY security ./security
 COPY rotas ./rotas
+COPY alembic ./alembic
 
 EXPOSE 8000
 
