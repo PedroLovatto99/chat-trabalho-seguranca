@@ -106,6 +106,23 @@ Mensagens chegam automaticamente na tela de quem estiver online; se o destinatá
 estiver conectado, você recebe um aviso de erro. Só contas do tipo `cliente` conseguem
 entrar no chat (contas `administrador` são bloqueadas nessa parte).
 
+## Gerenciando usuários (admin)
+
+Contas `administrador` não usam o `client.py` do chat (são bloqueadas de propósito) — usam
+um script próprio:
+
+```bash
+python admin_client.py
+```
+
+Pede usuário/senha de uma conta `administrador` já existente (a primeira vem do
+`seed-admin`, veja acima) e abre um menu pra:
+
+- Listar todos os usuários (incluindo o `password_hash`, pra conferir visualmente que está
+  com hash e nunca em texto puro — sem precisar entrar no banco).
+- Criar uma nova conta `administrador`.
+- Excluir um usuário — contas `administrador` não podem ser excluídas por aqui de propósito.
+
 ## Inspecionando o banco de dados
 
 Útil para conferir que senhas ficam com hash (bcrypt) e nunca em texto puro:
@@ -133,13 +150,16 @@ security/
 rotas/
   main_routes.py            # endpoint WebSocket autenticado (/ws)
   auth_routes.py             # /auth/register, /auth/login, /auth/logout
-  connection.py               # gerenciador de conexões ativas e chaves públicas
+  admin_routes.py             # /admin/usuarios (listar/criar admin/excluir)
+  connection.py                 # gerenciador de conexões ativas e chaves públicas
 alembic/                       # migrations do banco
 postgres-init/                  # script que cria a role de privilégio mínimo no Postgres
-client.py                        # cliente de terminal (login, criptografia, UI)
-docker-compose.yml                # sobe servidor + banco em containers
+client.py                        # cliente de terminal do chat (login, criptografia, UI)
+admin_client.py                   # cliente de terminal administrativo
+seed_admin.py                      # cria o primeiro administrador (script, não rota)
+docker-compose.yml                  # sobe servidor + banco em containers
 Dockerfile
-requirements.txt                   # dependências do servidor
-requirements-client.txt             # dependências só do cliente
-PLANEJAMENTO_SEGURANCA.md            # checklist/decisões de arquitetura de segurança
+requirements.txt                     # dependências do servidor
+requirements-client.txt               # dependências só do cliente (chat + admin)
+PLANEJAMENTO_SEGURANCA.md              # checklist/decisões de arquitetura de segurança
 ```

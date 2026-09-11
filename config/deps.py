@@ -24,3 +24,12 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida — faça login novamente")
 
     return user
+
+
+def require_role(role: str):
+    async def _checker(usuario: Usuario = Depends(get_current_user)) -> Usuario:
+        if usuario.role != role:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "acesso negado para esse papel")
+        return usuario
+
+    return _checker
