@@ -20,12 +20,10 @@ def _format_error(detail) -> str:
 def login(base_url: str) -> str:
     """Só login — contas administrador não têm autocadastro (nem aqui)."""
     while True:
-        username = input("Usuário (admin): ").strip()
+        email = input("Email (admin): ").strip()
         password = getpass.getpass("Senha: ")
 
-        resp = httpx.post(
-            f"{base_url}/auth/login", json={"username": username, "password": password}
-        )
+        resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
         if resp.status_code == 200:
             return resp.json()["access_token"]
 
@@ -43,19 +41,23 @@ def listar_usuarios(base_url: str, token: str) -> None:
         print("(nenhum usuário cadastrado)\n")
         return
 
-    print(f"\n{'id':<4} {'username':<20} {'role':<15} password_hash")
+    print(f"\n{'id':<4} {'username':<20} {'email':<25} {'role':<15} password_hash")
     for u in usuarios:
-        print(f"{u['id']:<4} {u['username']:<20} {u['role']:<15} {u['password_hash']}")
+        print(
+            f"{u['id']:<4} {u['username']:<20} {u['email']:<25} {u['role']:<15} "
+            f"{u['password_hash']}"
+        )
     print()
 
 
 def criar_admin(base_url: str, token: str) -> None:
     username = input("Usuário do novo admin: ").strip()
-    password = getpass.getpass("Senha (mín. 8 caracteres): ")
+    email = input("Email do novo admin: ").strip()
+    password = getpass.getpass("Senha (mín. 8, com 1 maiúscula e 1 número): ")
 
     resp = httpx.post(
         f"{base_url}/admin/usuarios",
-        json={"username": username, "password": password},
+        json={"username": username, "email": email, "password": password},
         headers={"Authorization": f"Bearer {token}"},
     )
     if resp.status_code == 201:

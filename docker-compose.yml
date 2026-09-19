@@ -59,6 +59,11 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+    volumes:
+      # Sem isso, `alembic revision --autogenerate` escreve o arquivo novo só dentro
+      # do container — some quando o `--rm` remove ele. Com o volume, a migration
+      # gerada aparece de verdade em alembic/versions/ no host.
+      - ./alembic:/app/alembic
     depends_on:
       db:
         condition: service_healthy
@@ -81,6 +86,7 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     depends_on:
       db:

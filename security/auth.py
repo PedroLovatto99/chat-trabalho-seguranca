@@ -7,6 +7,16 @@ import jwt
 from config.settings import settings
 
 
+def validar_senha_forte(password: str) -> None:
+    """Levanta ValueError se a senha não tiver ao menos 1 maiúscula e 1 número.
+    Único lugar com essa regra — usado pelos schemas Pydantic (API) e pelo
+    seed_admin.py (que não passa pela validação de request)."""
+    if not any(c.isupper() for c in password):
+        raise ValueError("a senha precisa ter pelo menos uma letra maiúscula")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("a senha precisa ter pelo menos um número")
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

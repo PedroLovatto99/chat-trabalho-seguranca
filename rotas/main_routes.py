@@ -1,3 +1,6 @@
+import asyncio
+import time
+
 import jwt
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +16,7 @@ order_router = APIRouter()
 manager = ConnectionManager()
 
 
-async def _authenticate(websocket: WebSocket, db: AsyncSession) -> Usuario | None:
+async def _authenticate(websocket: WebSocket, db: AsyncSession) -> tuple[Usuario, int] | None:
     auth_header = websocket.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
@@ -26,15 +29,26 @@ async def _authenticate(websocket: WebSocket, db: AsyncSession) -> Usuario | Non
     usuario = await db.get(Usuario, int(payload["sub"]))
     if usuario is None or usuario.jti_ativo != payload.get("jti"):
         return None
-    return usuario
+    return usuario, payload["exp"]
+
+
+async def _expirar_sessao(websocket: WebSocket, exp: int) -> None:
+    """Derruba a conexão sozinha quando o JWT expira — sem isso, uma sessão de
+    WebSocket já aberta ficaria válida indefinidamente, mesmo com token vencido
+    (a checagem de expiração só rodava uma vez, no handshake)."""
+    restante = exp - time.time()
+    if restante > 0:
+        await asyncio.sleep(restante)
+    await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="sessão expirada")
 
 
 @order_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
-    usuario = await _authenticate(websocket, db)
-    if usuario is None:
+    resultado = await _authenticate(websocket, db)
+    if resultado is None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="não autenticado")
         return
+    usuario, exp = resultado
     if usuario.role != UserRole.CLIENTE.value:
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="papel sem permissão de chat"
@@ -43,12 +57,13 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
 
     user_id = usuario.username
     await manager.connect(user_id, websocket)
-
-    register = await websocket.receive_json()
-    manager.register_public_key(user_id, register["public_key"])
-    await manager.broadcast_user_list()
+    watchdog = asyncio.create_task(_expirar_sessao(websocket, exp))
 
     try:
+        register = await websocket.receive_json()
+        manager.register_public_key(user_id, register["public_key"])
+        await manager.broadcast_user_list()
+
         while True:
             data = await websocket.receive_json()
             to_user_id = data["to"]
@@ -61,5 +76,8 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
                     {"type": "error", "detail": f"'{to_user_id}' não está online"}
                 )
     except WebSocketDisconnect:
+        pass
+    finally:
+        watchdog.cancel()
         manager.disconnect(user_id)
         await manager.broadcast_user_list()

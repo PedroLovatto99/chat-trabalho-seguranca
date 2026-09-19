@@ -27,12 +27,14 @@ async def listar_usuarios(db: AsyncSession = Depends(get_db)):
     "/usuarios", response_model=UsuarioAdminView, status_code=status.HTTP_201_CREATED
 )
 async def criar_admin(data: AdminCreateRequest, db: AsyncSession = Depends(get_db)):
-    existing = await db.scalar(select(Usuario).where(Usuario.username == data.username))
-    if existing is not None:
+    if await db.scalar(select(Usuario).where(Usuario.username == data.username)):
         raise HTTPException(status.HTTP_409_CONFLICT, "usuário já existe")
+    if await db.scalar(select(Usuario).where(Usuario.email == data.email)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "email já cadastrado")
 
     novo_admin = Usuario(
         username=data.username,
+        email=data.email,
         password_hash=hash_password(data.password),
         role=UserRole.ADMINISTRADOR.value,
     )

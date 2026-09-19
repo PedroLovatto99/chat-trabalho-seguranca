@@ -39,7 +39,8 @@ demanda)
 ### Criando o primeiro administrador (opcional, uma vez só)
 
 Contas `administrador` não têm cadastro público (só `/auth/register`, que cria `cliente`).
-A primeira é criada por este script, lendo `ADMIN_USERNAME`/`ADMIN_PASSWORD` do `.env`:
+A primeira é criada por este script, lendo `ADMIN_USERNAME`/`ADMIN_EMAIL`/`ADMIN_PASSWORD`
+do `.env` (a senha precisa ter 8+ caracteres, 1 maiúscula e 1 número):
 
 ```bash
 docker compose run --rm seed-admin
@@ -69,8 +70,16 @@ no PC de outra pessoa numa demonstração.)
 python client.py
 ```
 
-O programa pede o endereço do servidor (Enter usa `localhost:8000`), depois usuário e senha
-— faz login, ou oferece criar a conta na hora se ela não existir. Depois disso abre o chat.
+O programa pede o endereço do servidor (Enter usa `localhost:8000`), depois **email** e
+senha — o login é por email, mas o servidor devolve o `username` junto do token, que é o
+que aparece pra todo mundo no chat (não precisa saber o email de quem quer conversar). Se a
+conta não existir, oferece criar na hora (pede usuário, email e senha — senha precisa ter
+8+ caracteres, 1 maiúscula e 1 número). Depois disso abre o chat.
+
+A sessão dura 15 minutos (`JWT_EXPIRE_MINUTES` no `.env`) — passado esse tempo, o chat
+**desconecta sozinho**, não é só bloquear novas ações. Pra testar isso rapidamente sem
+esperar 15 minutos, troque temporariamente pra `JWT_EXPIRE_MINUTES=1` e recrie o container
+(`docker compose up -d server`).
 
 ## Rodando em máquinas diferentes (demonstração com mais de um PC)
 
@@ -115,12 +124,12 @@ um script próprio:
 python admin_client.py
 ```
 
-Pede usuário/senha de uma conta `administrador` já existente (a primeira vem do
-`seed-admin`, veja acima) e abre um menu pra:
+Pede email/senha de uma conta `administrador` já existente (a primeira vem do `seed-admin`,
+veja acima) e abre um menu pra:
 
-- Listar todos os usuários (incluindo o `password_hash`, pra conferir visualmente que está
-  com hash e nunca em texto puro — sem precisar entrar no banco).
-- Criar uma nova conta `administrador`.
+- Listar todos os usuários (username, email, role e `password_hash`, pra conferir
+  visualmente que está com hash e nunca em texto puro — sem precisar entrar no banco).
+- Criar uma nova conta `administrador` (pede usuário, email e senha).
 - Excluir um usuário — contas `administrador` não podem ser excluídas por aqui de propósito.
 
 ## Inspecionando o banco de dados
@@ -128,7 +137,7 @@ Pede usuário/senha de uma conta `administrador` já existente (a primeira vem d
 Útil para conferir que senhas ficam com hash (bcrypt) e nunca em texto puro:
 
 ```bash
-docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT id, username, password_hash, role FROM usuarios;"
+docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT id, username, email, password_hash, role FROM usuarios;"
 ```
 
 Ou com um cliente psql/GUI (pgAdmin, DBeaver) local, apontando pra `localhost:55432` com as

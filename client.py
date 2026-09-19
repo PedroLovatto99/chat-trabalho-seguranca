@@ -70,48 +70,52 @@ def _format_error(detail) -> str:
 
 def register(base_url: str) -> tuple[str, str]:
     """Formulário próprio de criação de conta — campos independentes da tentativa
-    de login que levou até aqui, para não reaproveitar usuário/senha silenciosamente."""
+    de login que levou até aqui, para não reaproveitar usuário/senha silenciosamente.
+    Retorna (email, password), usados em seguida pra logar de verdade."""
     while True:
-        username = input("Novo usuário: ").strip()
-        password = getpass.getpass("Nova senha (mín. 8 caracteres): ")
+        username = input("Novo usuário (nome exibido no chat): ").strip()
+        email = input("Email: ").strip()
+        password = getpass.getpass("Nova senha (mín. 8, com 1 maiúscula e 1 número): ")
 
         reg = httpx.post(
-            f"{base_url}/auth/register", json={"username": username, "password": password}
+            f"{base_url}/auth/register",
+            json={"username": username, "email": email, "password": password},
         )
         if reg.status_code == 201:
-            return username, password
+            return email, password
 
         print(f"[erro] não foi possível criar a conta: {_format_error(reg.json().get('detail'))}\n")
 
 
 def login_or_register(base_url: str) -> tuple[str, str]:
+    """Login é por email; o servidor devolve o username (usado como identidade no
+    chat) junto do token, então o usuário não precisa saber/digitar o próprio
+    username de novo depois de logar."""
     while True:
-        username = input("Usuário: ").strip()
+        email = input("Email: ").strip()
         password = getpass.getpass("Senha: ")
 
-        resp = httpx.post(
-            f"{base_url}/auth/login", json={"username": username, "password": password}
-        )
+        resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
         if resp.status_code == 200:
-            return username, resp.json()["access_token"]
+            data = resp.json()
+            return data["username"], data["access_token"]
 
         if resp.status_code != 401:
             print(f"[erro] login falhou: {_format_error(resp.json().get('detail', resp.text))}\n")
             continue
 
         criar = input(
-            "Usuário/senha não encontrados. Criar uma conta nova? [s/N] "
+            "Email/senha não encontrados. Criar uma conta nova? [s/N] "
         ).strip().lower()
         if criar != "s":
             continue
 
-        username, password = register(base_url)
+        email, password = register(base_url)
 
-        resp = httpx.post(
-            f"{base_url}/auth/login", json={"username": username, "password": password}
-        )
+        resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
         resp.raise_for_status()
-        return username, resp.json()["access_token"]
+        data = resp.json()
+        return data["username"], data["access_token"]
 
 
 async def receiver(ws, known_users: dict, private_key, incoming_keys: dict, user_id: str):
