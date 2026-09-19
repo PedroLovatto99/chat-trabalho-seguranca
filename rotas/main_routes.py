@@ -1,4 +1,6 @@
 import asyncio
+import json
+import logging
 import time
 
 import jwt
@@ -14,6 +16,12 @@ from .connection import ConnectionManager
 order_router = APIRouter()
 
 manager = ConnectionManager()
+logger = logging.getLogger("chat_seguro")
+
+# Anti-DoS: sem isso, uma conexão já autenticada poderia mandar mensagens sem
+# limite (esgotando CPU/banda) ou um payload gigante (esgotando memória).
+MAX_MENSAGENS_POR_SEGUNDO = 5
+MAX_PAYLOAD_BYTES = 64 * 1024  # 64 KB — sobra pra texto cifrado normal
 
 
 async def _authenticate(websocket: WebSocket, db: AsyncSession) -> tuple[Usuario, int] | None:
@@ -64,10 +72,38 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
         manager.register_public_key(user_id, register["public_key"])
         await manager.broadcast_user_list()
 
+        janela_inicio = time.monotonic()
+        mensagens_na_janela = 0
+
         while True:
-            data = await websocket.receive_json()
-            to_user_id = data["to"]
-            envelope = {"type": "message", "from": user_id, "ciphertext": data["ciphertext"]}
+            raw = await websocket.receive_text()
+
+            if len(raw.encode("utf-8")) > MAX_PAYLOAD_BYTES:
+                await websocket.send_json(
+                    {"type": "error", "detail": "mensagem excede o tamanho máximo permitido"}
+                )
+                continue
+
+            agora = time.monotonic()
+            if agora - janela_inicio >= 1:
+                janela_inicio = agora
+                mensagens_na_janela = 0
+            mensagens_na_janela += 1
+            if mensagens_na_janela > MAX_MENSAGENS_POR_SEGUNDO:
+                await websocket.send_json(
+                    {"type": "error", "detail": "muitas mensagens em pouco tempo — aguarde um instante"}
+                )
+                continue
+
+            try:
+                data = json.loads(raw)
+                to_user_id = data["to"]
+                ciphertext = data["ciphertext"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                await websocket.send_json({"type": "error", "detail": "mensagem mal formada"})
+                continue
+
+            envelope = {"type": "message", "from": user_id, "ciphertext": ciphertext}
             if "encrypted_key" in data:
                 envelope["encrypted_key"] = data["encrypted_key"]
             delivered = await manager.send_personal_message(envelope, to_user_id)
@@ -77,6 +113,14 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
                 )
     except WebSocketDisconnect:
         pass
+    except Exception:
+        # Rede de segurança: um erro não previsto aqui não deve travar o
+        # servidor nem vazar detalhes internos pro cliente — só fecha a conexão.
+        logger.exception("erro não tratado na conexão WebSocket de '%s'", user_id)
+        try:
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="erro interno")
+        except RuntimeError:
+            pass  # conexão já estava fechada
     finally:
         watchdog.cancel()
         manager.disconnect(user_id)
