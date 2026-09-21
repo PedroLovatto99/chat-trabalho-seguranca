@@ -22,6 +22,17 @@ class UserLogin(BaseModel):
     password: str
 
 
+class TrocaSenhaRequest(BaseModel):
+    senha_atual: str
+    senha_nova: str = Field(min_length=8, max_length=72)
+
+    @field_validator("senha_nova")
+    @classmethod
+    def _senha_forte(cls, v: str) -> str:
+        validar_senha_forte(v)
+        return v
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

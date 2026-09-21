@@ -66,6 +66,25 @@ def criar_admin(base_url: str, token: str) -> None:
         print(f"[erro] {_format_error(resp.json().get('detail', resp.text))}\n")
 
 
+def trocar_senha(base_url: str, token: str) -> bool:
+    """Retorna True se a senha foi trocada (a sessão atual foi invalidada no
+    servidor, então quem chamou deve logar de novo)."""
+    senha_atual = getpass.getpass("Senha atual: ")
+    senha_nova = getpass.getpass("Nova senha (mín. 8, com 1 maiúscula e 1 número): ")
+
+    resp = httpx.patch(
+        f"{base_url}/auth/senha",
+        json={"senha_atual": senha_atual, "senha_nova": senha_nova},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    if resp.status_code == 200:
+        print("[ok] senha alterada — faça login de novo.\n")
+        return True
+
+    print(f"[erro] {_format_error(resp.json().get('detail', resp.text))}\n")
+    return False
+
+
 def excluir_usuario(base_url: str, token: str) -> None:
     bruto = input("ID do usuário a excluir: ").strip()
     if not bruto.isdigit():
@@ -97,7 +116,8 @@ def main() -> None:
         "\n1) Listar usuários"
         "\n2) Criar novo administrador"
         "\n3) Excluir usuário"
-        "\n4) Sair\n"
+        "\n4) Trocar minha senha"
+        "\n5) Sair\n"
     )
     while True:
         print(menu)
@@ -109,6 +129,10 @@ def main() -> None:
         elif escolha == "3":
             excluir_usuario(base_url, token)
         elif escolha == "4":
+            if trocar_senha(base_url, token):
+                token = login(base_url)
+                print("\nLogin ok.")
+        elif escolha == "5":
             break
         else:
             print("[erro] opção inválida\n")

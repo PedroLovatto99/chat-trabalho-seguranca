@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db
 from config.deps import get_current_user
 from db.models import Usuario, UserRole
-from db.schemas import TokenResponse, UserLogin, UserRegister
+from db.schemas import TokenResponse, TrocaSenhaRequest, UserLogin, UserRegister
 from security.audit import registrar_auditoria
 from security.auth import create_access_token, hash_password, verify_password
 from security.rate_limit import limiter
@@ -69,3 +69,30 @@ async def logout(
     usuario.jti_ativo = None
     await db.commit()
     return {"detail": "logout realizado"}
+
+
+@auth_router.patch("/senha")
+async def trocar_senha(
+    request: Request,
+    data: TrocaSenhaRequest,
+    usuario: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+
+    if not verify_password(data.senha_atual, usuario.password_hash):
+        await registrar_auditoria(
+            db, quem=usuario.username, acao="troca_senha", resultado="falha",
+            ip_origem=ip, detalhes="senha atual incorreta",
+        )
+        await db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "senha atual incorreta")
+
+    usuario.password_hash = hash_password(data.senha_nova)
+    # Invalida a sessão atual — força logar de novo com a senha nova, e derruba
+    # qualquer outra sessão ativa (ex: se a conta foi comprometida, trocar a
+    # senha já corta o acesso de quem estava usando o token antigo).
+    usuario.jti_ativo = None
+    await registrar_auditoria(db, quem=usuario.username, acao="troca_senha", resultado="sucesso", ip_origem=ip)
+    await db.commit()
+    return {"detail": "senha alterada — faça login novamente"}

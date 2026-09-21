@@ -104,6 +104,8 @@ clientes remotos nunca acessam o Postgres diretamente, só a API.
 Depois de logado:
 
 - `/list` — lista os usuários online no momento.
+- `/senha` — troca sua senha (pede a senha atual + a nova). Isso invalida a sessão atual no
+  servidor, então o programa encerra e pede pra entrar de novo com a senha nova.
 - `/sair` — faz logout de verdade (invalida o token no servidor) e encerra o programa —
   prefira isso a fechar com Ctrl+C.
 - `<usuario_destino> <mensagem>` — envia uma mensagem privada. Exemplo:
@@ -131,6 +133,7 @@ veja acima) e abre um menu pra:
   visualmente que está com hash e nunca em texto puro — sem precisar entrar no banco).
 - Criar uma nova conta `administrador` (pede usuário, email e senha).
 - Excluir um usuário — contas `administrador` não podem ser excluídas por aqui de propósito.
+- Trocar a própria senha (pede a senha atual + a nova, já pede login de novo em seguida).
 
 ## Inspecionando o banco de dados
 

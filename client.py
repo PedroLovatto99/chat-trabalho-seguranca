@@ -56,6 +56,12 @@ class LogoutRequested(Exception):
     """Sinaliza que o usuário pediu pra sair com /sair (logout limpo, sem Ctrl+C)."""
 
 
+class SenhaAlterada(Exception):
+    """Sinaliza que a senha foi trocada — o servidor já invalidou a sessão atual
+    (POST /auth/senha zera o jti_ativo), então o programa encerra pedindo pra
+    logar de novo com a senha nova, sem tentar chamar /auth/logout de novo."""
+
+
 def _format_error(detail) -> str:
     """Formata o corpo de erro do FastAPI — tanto {"detail": "texto"} quanto os erros
     de validação do Pydantic ({"detail": [{"loc": [...], "msg": "..."}]})."""
@@ -141,9 +147,9 @@ async def receiver(ws, known_users: dict, private_key, incoming_keys: dict, user
             print(f"\n[erro] {data['detail']}\n> ", end="", flush=True)
 
 
-async def sender(ws, known_users: dict, outgoing_keys: dict, user_id: str):
+async def sender(ws, known_users: dict, outgoing_keys: dict, user_id: str, base_url: str, token: str):
     loop = asyncio.get_event_loop()
-    print("Formato: <usuario_destino> <mensagem>  |  /list  |  /sair")
+    print("Formato: <usuario_destino> <mensagem>  |  /list  |  /senha  |  /sair")
     while True:
         line = (await loop.run_in_executor(None, input, "> ")).strip()
         if not line:
@@ -153,6 +159,24 @@ async def sender(ws, known_users: dict, outgoing_keys: dict, user_id: str):
         if line == "/list":
             others = [u for u in known_users if u != user_id]
             print(f"[usuários online: {', '.join(others)}]")
+            continue
+        if line == "/senha":
+            senha_atual = await loop.run_in_executor(None, getpass.getpass, "Senha atual: ")
+            senha_nova = await loop.run_in_executor(
+                None, getpass.getpass, "Nova senha (mín. 8, com 1 maiúscula e 1 número): "
+            )
+            resp = await loop.run_in_executor(
+                None,
+                lambda: httpx.patch(
+                    f"{base_url}/auth/senha",
+                    json={"senha_atual": senha_atual, "senha_nova": senha_nova},
+                    headers={"Authorization": f"Bearer {token}"},
+                ),
+            )
+            if resp.status_code == 200:
+                print("[ok] senha alterada — você vai ser desconectado, entre de novo com a senha nova")
+                raise SenhaAlterada()
+            print(f"[erro] {_format_error(resp.json().get('detail', resp.text))}")
             continue
         to_user, _, text = line.partition(" ")
         if not text:
@@ -195,13 +219,15 @@ async def main():
             await ws.send(json.dumps({"type": "register", "public_key": public_pem}))
             await asyncio.gather(
                 receiver(ws, known_users, private_key, incoming_keys, user_id),
-                sender(ws, known_users, outgoing_keys, user_id),
+                sender(ws, known_users, outgoing_keys, user_id, base_url, token),
             )
     except InvalidStatus:
         print("[erro] conexão recusada — verifique se sua conta é do tipo 'cliente'")
     except LogoutRequested:
         httpx.post(f"{base_url}/auth/logout", headers={"Authorization": f"Bearer {token}"})
         print("\nVocê saiu.")
+    except SenhaAlterada:
+        print("\nSenha alterada. Rode o programa de novo pra entrar com a senha nova.")
 
 
 if __name__ == "__main__":
