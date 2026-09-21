@@ -10,7 +10,7 @@ from security.rate_limit import limiter
 
 logger = logging.getLogger("chat_seguro")
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
