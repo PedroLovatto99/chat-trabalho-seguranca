@@ -1,0 +1,11 @@
+- Subir o servidor
+docker compose up -d db server
+
+
+- Ver logs de auditoria
+docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT quem, acao, quando, ip_origem, resultado, detalhes FROM audit_log ORDER BY quando DESC LIMIT 20;"
+
+
+- Gerar migrations
+docker compose run --rm migrate revision --autogenerate -m "descrição da mudança"
+docker compose run --rm migrate upgrade head

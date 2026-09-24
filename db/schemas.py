@@ -20,6 +20,7 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str | None = None
 
 
 class TrocaSenhaRequest(BaseModel):
@@ -37,6 +38,15 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     username: str
+    mfa_ativo: bool
+
+
+class MfaConfirmarRequest(BaseModel):
+    codigo: str
+
+
+class MfaDesativarRequest(BaseModel):
+    senha: str
 
 
 class AdminCreateRequest(BaseModel):

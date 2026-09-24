@@ -41,9 +41,6 @@ async def _authenticate(websocket: WebSocket, db: AsyncSession) -> tuple[Usuario
 
 
 async def _expirar_sessao(websocket: WebSocket, exp: int) -> None:
-    """Derruba a conexão sozinha quando o JWT expira — sem isso, uma sessão de
-    WebSocket já aberta ficaria válida indefinidamente, mesmo com token vencido
-    (a checagem de expiração só rodava uma vez, no handshake)."""
     restante = exp - time.time()
     if restante > 0:
         await asyncio.sleep(restante)

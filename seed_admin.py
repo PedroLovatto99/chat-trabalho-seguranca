@@ -13,6 +13,7 @@ from sqlalchemy import or_, select
 from db.database import AsyncSessionLocal
 from db.models import Usuario, UserRole
 from security.auth import hash_password, validar_senha_forte
+from security.mfa import gerar_totp_secret, print_qr_ascii, totp_provisioning_uri
 
 
 async def main() -> None:
@@ -44,15 +45,26 @@ async def main() -> None:
             )
             return
 
+        secret = gerar_totp_secret()
         admin = Usuario(
             username=username,
             email=email,
             password_hash=hash_password(password),
             role=UserRole.ADMINISTRADOR.value,
+            totp_secret=secret,
         )
         db.add(admin)
         await db.commit()
         print(f"Administrador '{username}' criado com sucesso.")
+        print(
+            "\nDois fatores é obrigatório para administrador — configure agora no "
+            "Google Authenticator (ou outro app TOTP compatível):"
+        )
+        uri = totp_provisioning_uri(secret, email)
+        print(f"  Chave manual: {secret}")
+        print(f"  URI (otpauth://): {uri}")
+        print("\nOu escaneie o QR code abaixo:\n")
+        print_qr_ascii(uri)
 
 
 if __name__ == "__main__":

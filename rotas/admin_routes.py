@@ -8,6 +8,7 @@ from db.models import Usuario, UserRole
 from db.schemas import AdminCreateRequest, UsuarioAdminView
 from security.audit import registrar_auditoria
 from security.auth import hash_password
+from security.mfa import gerar_totp_secret, totp_provisioning_uri
 
 # `dependencies=[...]` no router aplica o require_role em toda rota daqui — nenhuma
 # fica esquecida sem a checagem, mesmo se alguém adicionar uma rota nova depois.
@@ -24,9 +25,7 @@ async def listar_usuarios(db: AsyncSession = Depends(get_db)):
     return result.all()
 
 
-@admin_router.post(
-    "/usuarios", response_model=UsuarioAdminView, status_code=status.HTTP_201_CREATED
-)
+@admin_router.post("/usuarios", status_code=status.HTTP_201_CREATED)
 async def criar_admin(
     request: Request,
     data: AdminCreateRequest,
@@ -50,11 +49,16 @@ async def criar_admin(
         await db.commit()
         raise HTTPException(status.HTTP_409_CONFLICT, "email já cadastrado")
 
+    # Administrador tem dois fatores obrigatório desde a criação — o segredo já
+    # nasce pronto, sem passar pelo fluxo de ativar/confirmar do cliente (não tem
+    # como o próprio novo admin estar logado ainda pra confirmar nesse momento).
+    secret = gerar_totp_secret()
     novo_admin = Usuario(
         username=data.username,
         email=data.email,
         password_hash=hash_password(data.password),
         role=UserRole.ADMINISTRADOR.value,
+        totp_secret=secret,
     )
     db.add(novo_admin)
     await registrar_auditoria(
@@ -63,7 +67,14 @@ async def criar_admin(
     )
     await db.commit()
     await db.refresh(novo_admin)
-    return novo_admin
+    return {
+        "id": novo_admin.id,
+        "username": novo_admin.username,
+        "email": novo_admin.email,
+        "role": novo_admin.role,
+        "totp_secret": secret,
+        "otpauth_url": totp_provisioning_uri(secret, novo_admin.email),
+    }
 
 
 @admin_router.delete("/usuarios/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

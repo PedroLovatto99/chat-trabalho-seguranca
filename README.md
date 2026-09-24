@@ -76,6 +76,9 @@ que aparece pra todo mundo no chat (não precisa saber o email de quem quer conv
 conta não existir, oferece criar na hora (pede usuário, email e senha — senha precisa ter
 8+ caracteres, 1 maiúscula e 1 número). Depois disso abre o chat.
 
+Se a conta tiver dois fatores ativado (veja `/doisfatores` abaixo), depois da senha certa o
+programa pede o código de 6 dígitos do Google Authenticator antes de liberar o login.
+
 A sessão dura 15 minutos (`JWT_EXPIRE_MINUTES` no `.env`) — passado esse tempo, o chat
 **desconecta sozinho**, não é só bloquear novas ações. Pra testar isso rapidamente sem
 esperar 15 minutos, troque temporariamente pra `JWT_EXPIRE_MINUTES=1` e recrie o container
@@ -106,6 +109,10 @@ Depois de logado:
 - `/list` — lista os usuários online no momento.
 - `/senha` — troca sua senha (pede a senha atual + a nova). Isso invalida a sessão atual no
   servidor, então o programa encerra e pede pra entrar de novo com a senha nova.
+- `/doisfatores` — ativa ou desativa o segundo fator (Google Authenticator) na sua conta.
+  Ao ativar, mostra uma chave pra configurar no app e pede o código gerado antes de valer de
+  verdade (assim não tem risco de travar a conta com uma chave digitada errada no app). Ao
+  desativar, pede a senha atual de novo.
 - `/sair` — faz logout de verdade (invalida o token no servidor) e encerra o programa —
   prefira isso a fechar com Ctrl+C.
 - `<usuario_destino> <mensagem>` — envia uma mensagem privada. Exemplo:
@@ -131,9 +138,17 @@ veja acima) e abre um menu pra:
 
 - Listar todos os usuários (username, email, role e `password_hash`, pra conferir
   visualmente que está com hash e nunca em texto puro — sem precisar entrar no banco).
-- Criar uma nova conta `administrador` (pede usuário, email e senha).
+- Criar uma nova conta `administrador` (pede usuário, email e senha). Dois fatores é
+  obrigatório pra administrador, então a chave TOTP do novo admin já vem pronta nessa
+  resposta — repasse pra pessoa configurar no Google Authenticator, não fica salva em
+  lugar nenhum depois desse momento.
 - Excluir um usuário — contas `administrador` não podem ser excluídas por aqui de propósito.
 - Trocar a própria senha (pede a senha atual + a nova, já pede login de novo em seguida).
+
+Dois fatores é **sempre obrigatório** pra administrador (não tem como desativar, diferente
+do `cliente` no `client.py`) — depois da senha certa, o login sempre pede o código do
+Google Authenticator. Contas administrador antigas, criadas antes dessa exigência existir,
+recebem a chave TOTP automaticamente no primeiro login depois da atualização.
 
 ## Inspecionando o banco de dados
 
@@ -159,6 +174,7 @@ db/
   schemas.py                # schemas Pydantic (register/login)
 security/
   auth.py                  # hash de senha (bcrypt) e JWT
+  mfa.py                    # segredo/verificação TOTP (Google Authenticator)
 rotas/
   main_routes.py            # endpoint WebSocket autenticado (/ws)
   auth_routes.py             # /auth/register, /auth/login, /auth/logout

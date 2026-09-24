@@ -1,8 +1,23 @@
 import getpass
+import sys
 
 import httpx
+import qrcode
 
 DEFAULT_SERVER = "localhost:8000"
+
+
+def _print_qr(otpauth_url: str) -> None:
+    """Desenha o QR code direto no terminal — o Google Authenticator escaneia
+    isso na tela normalmente. Se o terminal não suportar (encoding antigo),
+    não trava o fluxo — quem chama sempre mostra a chave manual também."""
+    try:
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(otpauth_url)
+        qr.make()
+        qr.print_ascii(tty=sys.stdout.isatty())
+    except (OSError, UnicodeEncodeError):
+        print("(não foi possível desenhar o QR code neste terminal — use a chave manual abaixo)")
 
 
 def _format_error(detail) -> str:
@@ -17,13 +32,40 @@ def _format_error(detail) -> str:
     return str(detail)
 
 
+def _tentar_login(base_url: str, email: str, password: str) -> httpx.Response:
+    """POST /auth/login. Administrador sempre exige dois fatores — cuida do
+    segundo passo aqui mesmo (mostra a chave se for a primeira vez, pede o
+    código, reenvia) antes de devolver a resposta final pro chamador."""
+    resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
+    if resp.status_code != 200:
+        return resp
+
+    data = resp.json()
+    if data.get("mfa_setup_required"):
+        print("\n[dois fatores obrigatório] configure agora no Google Authenticator:")
+        _print_qr(data["otpauth_url"])
+        print(f"  (ou digite a chave manual: {data['secret']})")
+        codigo = input("Código gerado pelo app: ").strip()
+        return httpx.post(
+            f"{base_url}/auth/login",
+            json={"email": email, "password": password, "totp_code": codigo},
+        )
+    if data.get("mfa_required"):
+        codigo = input("Código do Google Authenticator: ").strip()
+        return httpx.post(
+            f"{base_url}/auth/login",
+            json={"email": email, "password": password, "totp_code": codigo},
+        )
+    return resp
+
+
 def login(base_url: str) -> str:
     """Só login — contas administrador não têm autocadastro (nem aqui)."""
     while True:
         email = input("Email (admin): ").strip()
         password = getpass.getpass("Senha: ")
 
-        resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
+        resp = _tentar_login(base_url, email, password)
         if resp.status_code == 200:
             return resp.json()["access_token"]
 
@@ -61,7 +103,15 @@ def criar_admin(base_url: str, token: str) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     if resp.status_code == 201:
-        print(f"[ok] administrador '{username}' criado.\n")
+        info = resp.json()
+        print(f"[ok] administrador '{username}' criado.")
+        print(
+            "Dois fatores é obrigatório para administrador — a pessoa deve escanear esse QR "
+            "code (ou digitar a chave manual) no Google Authenticator agora, não fica salvo "
+            "em lugar nenhum depois:"
+        )
+        _print_qr(info["otpauth_url"])
+        print(f"  (chave manual: {info['totp_secret']})\n")
     else:
         print(f"[erro] {_format_error(resp.json().get('detail', resp.text))}\n")
 
@@ -86,6 +136,21 @@ def trocar_senha(base_url: str, token: str) -> bool:
 
 
 def excluir_usuario(base_url: str, token: str) -> None:
+    resp = httpx.get(f"{base_url}/admin/usuarios", headers={"Authorization": f"Bearer {token}"})
+    if resp.status_code != 200:
+        print(f"[erro] {_format_error(resp.json().get('detail', resp.text))}\n")
+        return
+
+    usuarios = resp.json()
+    if not usuarios:
+        print("(nenhum usuário cadastrado)\n")
+        return
+
+    print()
+    for u in usuarios:
+        print(f"  {u['id']:<4} {u['username']}")
+    print()
+
     bruto = input("ID do usuário a excluir: ").strip()
     if not bruto.isdigit():
         print("[erro] ID inválido\n")
