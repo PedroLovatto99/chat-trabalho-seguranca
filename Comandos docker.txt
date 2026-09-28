@@ -1,11 +1,47 @@
 - Subir o servidor
-docker compose up -d db server
+docker compose up --build -d
 
 
-- Ver logs de auditoria
-docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT quem, acao, quando, ip_origem, resultado, detalhes FROM audit_log ORDER BY quando DESC LIMIT 20;"
+- Rodar as migrations (primeira vez / após mudar o modelo)
+docker compose run --rm migrate
 
 
 - Gerar migrations
 docker compose run --rm migrate revision --autogenerate -m "descrição da mudança"
 docker compose run --rm migrate upgrade head
+
+
+- Criar o primeiro administrador (só uma vez)
+docker compose run --rm seed-admin
+
+
+- Ver logs do servidor (access log do uvicorn — não é o audit_log)
+docker compose logs -f server
+
+
+- Derrubar tudo
+docker compose down
+
+
+- Ver logs de auditoria (os 5 W's — abrir o psql sozinho não mostra nada, precisa da query)
+docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT quem, acao, quando, ip_origem, resultado, detalhes FROM audit_log ORDER BY quando DESC LIMIT 20;"
+
+
+- Ver usuários (confirmar que senha fica em hash, nunca em texto puro)
+docker exec -it trabalhog1-segurana-db-1 psql -U chat_owner -d chat_seguro -c "SELECT id, username, email, password_hash, role FROM usuarios;"
+
+
+- Provar privilégio mínimo do app_user (deve falhar: "permission denied for schema public" — app_user não pode DDL, só o chat_owner via Alembic)
+docker exec -it trabalhog1-segurana-db-1 psql -U app_user -d chat_seguro -c "CREATE TABLE teste (id int);"
+
+
+- Provar que audit_log é só-inserção (deve falhar: "permission denied for table audit_log" — nas demais tabelas, como usuarios, app_user pode alterar/apagar linhas normalmente)
+docker exec -it trabalhog1-segurana-db-1 psql -U app_user -d chat_seguro -c "DELETE FROM audit_log WHERE id = 1;"
+
+
+- Confirmar que /docs, /redoc e /openapi.json estão desabilitados (deve devolver 404)
+curl -i http://localhost:8000/docs
+
+
+- Testar expiração de sessão rapidamente (override temporário, lembrar de voltar pra 15 depois)
+JWT_EXPIRE_MINUTES=1 docker compose up -d server
