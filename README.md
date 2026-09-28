@@ -48,16 +48,14 @@ Abra o `.env` e troque pelo menos estes valores antes de subir o servidor:
 
 - `POSTGRES_PASSWORD` e `APP_DB_PASSWORD` — senhas do banco (troque pelas suas, não deixe o
   valor de exemplo).
-- `JWT_SECRET_KEY` — uma chave aleatória grande. Gere com:
-  ```bash
-  python -c "import secrets; print(secrets.token_hex(32))"
-  ```
-- `TOTP_ENCRYPTION_KEY` — cifra o segredo do 2FA (Google Authenticator) em repouso no
-  banco. Gere com:
-  ```bash
-  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-  ```
-  (precisa da lib `cryptography` instalada no ambiente virtual acima: `pip install cryptography`)
+- `JWT_SECRET_KEY` — coloque um valor qualquer, bem grande e aleatório (dica: quanto mais
+  imprevisível, melhor — pode ser uma senha longa gerada por qualquer gerenciador de senhas,
+  por exemplo).
+- `TOTP_ENCRYPTION_KEY` — cifra o segredo do 2FA (Google Authenticator) em repouso no banco.
+  Diferente da chave acima, esse valor precisa estar num formato específico (chave Fernet),
+  não é qualquer texto que serve — dica: com o Python já instalado, o jeito mais rápido é
+  `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+  (precisa da lib `cryptography`: `pip install cryptography`).
 - `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` — dados do primeiro administrador
   (usados só pelo `seed-admin`, mais abaixo). Senha precisa ter 8+ caracteres, 1 maiúscula
   e 1 número; evite domínios `.test`/`.invalid`/`.localhost` no email.
