@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 30
 
+    # Chave separada da JWT_SECRET_KEY — usada só pra cifrar o segredo TOTP em
+    # repouso (diferente da senha, o segredo TOTP precisa ser recuperável pra
+    # gerar o código de comparação a cada login, então não dá pra só fazer hash).
+    totp_encryption_key: str
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     def _url(self, user: str, password: str) -> str:

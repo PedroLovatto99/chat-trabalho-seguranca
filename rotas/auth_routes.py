@@ -15,7 +15,13 @@ from db.schemas import (
 )
 from security.audit import registrar_auditoria
 from security.auth import create_access_token, hash_password, verify_password
-from security.mfa import gerar_totp_secret, totp_provisioning_uri, verificar_totp_code
+from security.mfa import (
+    cifrar_totp_secret,
+    decifrar_totp_secret,
+    gerar_totp_secret,
+    totp_provisioning_uri,
+    verificar_totp_code,
+)
 from security.rate_limit import limiter
 
 auth_router = APIRouter(prefix="/auth", tags=["autenticacao"])
@@ -73,7 +79,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
             # já ter confirmado um segredo) mas essa conta nunca configurou. Gera
             # agora e devolve pra configuração imediata, em vez de travar o login.
             secret = gerar_totp_secret()
-            usuario.totp_secret = secret
+            usuario.totp_secret = cifrar_totp_secret(secret)
             await registrar_auditoria(
                 db, quem=usuario.username, acao="mfa_setup_automatico", resultado="sucesso",
                 ip_origem=ip, detalhes="segredo gerado no primeiro login após MFA virar obrigatório",
@@ -88,7 +94,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
             # senha certa, mas falta o segundo fator — não é erro (200), é o
             # cliente que decide pedir o código e chamar de novo já com ele.
             return {"mfa_required": True}
-        if not verificar_totp_code(usuario.totp_secret, data.totp_code):
+        if not verificar_totp_code(decifrar_totp_secret(usuario.totp_secret), data.totp_code):
             await registrar_auditoria(
                 db, quem=usuario.username, acao="login", resultado="falha",
                 ip_origem=ip, detalhes="código de dois fatores inválido",
@@ -152,7 +158,7 @@ async def ativar_mfa(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "administrador já tem dois fatores obrigatório")
 
     secret = gerar_totp_secret()
-    usuario.totp_secret = secret
+    usuario.totp_secret = cifrar_totp_secret(secret)
     usuario.mfa_confirmado = False
     await registrar_auditoria(db, quem=usuario.username, acao="mfa_ativar", resultado="sucesso", ip_origem=ip)
     await db.commit()
@@ -176,7 +182,7 @@ async def confirmar_mfa(
             status.HTTP_400_BAD_REQUEST, "nenhuma configuração pendente — use /auth/mfa/ativar primeiro"
         )
 
-    if not verificar_totp_code(usuario.totp_secret, data.codigo):
+    if not verificar_totp_code(decifrar_totp_secret(usuario.totp_secret), data.codigo):
         await registrar_auditoria(
             db, quem=usuario.username, acao="mfa_confirmar", resultado="falha",
             ip_origem=ip, detalhes="código inválido",

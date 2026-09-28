@@ -13,7 +13,7 @@ from sqlalchemy import or_, select
 from db.database import AsyncSessionLocal
 from db.models import Usuario, UserRole
 from security.auth import hash_password, validar_senha_forte
-from security.mfa import gerar_totp_secret, print_qr_ascii, totp_provisioning_uri
+from security.mfa import cifrar_totp_secret, gerar_totp_secret, print_qr_ascii, totp_provisioning_uri
 
 
 async def main() -> None:
@@ -51,7 +51,7 @@ async def main() -> None:
             email=email,
             password_hash=hash_password(password),
             role=UserRole.ADMINISTRADOR.value,
-            totp_secret=secret,
+            totp_secret=cifrar_totp_secret(secret),
         )
         db.add(admin)
         await db.commit()

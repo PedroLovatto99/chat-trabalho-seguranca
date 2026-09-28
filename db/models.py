@@ -27,7 +27,9 @@ class Usuario(Base):
     )
     public_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     jti_ativo: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    totp_secret: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Cifrado (Fernet) — não é o segredo em texto puro. Guardado como Text porque
+    # o texto cifrado é bem maior que o segredo original de 32 caracteres.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Só tem efeito pra `cliente` (opt-in via /auth/mfa/ativar + /auth/mfa/confirmar).
     # Pra `administrador` o MFA é obrigatório sempre, checado pelo role no login,
     # independente deste campo — administrador já nasce com totp_secret preenchido.

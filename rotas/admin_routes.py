@@ -8,7 +8,7 @@ from db.models import Usuario, UserRole
 from db.schemas import AdminCreateRequest, UsuarioAdminView
 from security.audit import registrar_auditoria
 from security.auth import hash_password
-from security.mfa import gerar_totp_secret, totp_provisioning_uri
+from security.mfa import cifrar_totp_secret, gerar_totp_secret, totp_provisioning_uri
 
 # `dependencies=[...]` no router aplica o require_role em toda rota daqui — nenhuma
 # fica esquecida sem a checagem, mesmo se alguém adicionar uma rota nova depois.
@@ -58,7 +58,7 @@ async def criar_admin(
         email=data.email,
         password_hash=hash_password(data.password),
         role=UserRole.ADMINISTRADOR.value,
-        totp_secret=secret,
+        totp_secret=cifrar_totp_secret(secret),
     )
     db.add(novo_admin)
     await registrar_auditoria(

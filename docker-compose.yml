@@ -35,6 +35,7 @@ services:
       POSTGRES_PORT: 5432
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY}
     ports:
       - "8000:8000"
     depends_on:
@@ -59,6 +60,7 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY}
     volumes:
       # Sem isso, `alembic revision --autogenerate` escreve o arquivo novo só dentro
       # do container — some quando o `--rm` remove ele. Com o volume, a migration
@@ -85,6 +87,7 @@ services:
       POSTGRES_PORT: 5432
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
