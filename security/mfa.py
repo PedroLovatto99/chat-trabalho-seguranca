@@ -2,28 +2,12 @@ import sys
 
 import pyotp
 import qrcode
-from cryptography.fernet import Fernet
-
-from config.settings import settings
 
 ISSUER = "Chat Seguro"
-
-_fernet = Fernet(settings.totp_encryption_key.encode())
 
 
 def gerar_totp_secret() -> str:
     return pyotp.random_base32()
-
-
-def cifrar_totp_secret(secret: str) -> str:
-    """Cifra o segredo TOTP antes de salvar no banco — diferente da senha, esse
-    segredo precisa ser recuperável (o servidor recalcula o código a cada login
-    pra comparar), então não dá pra usar hash, só cifragem reversível."""
-    return _fernet.encrypt(secret.encode()).decode()
-
-
-def decifrar_totp_secret(secret_cifrado: str) -> str:
-    return _fernet.decrypt(secret_cifrado.encode()).decode()
 
 
 def totp_provisioning_uri(secret: str, email: str) -> str:

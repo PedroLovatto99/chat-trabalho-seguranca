@@ -18,7 +18,51 @@ Só quem vai **hospedar** a aplicação precisa desta parte.
 ### Pré-requisitos
 
 - [Docker](https://www.docker.com/) — é tudo que essa máquina precisa: o Docker builda a
-  imagem e instala as dependências sozinho, não precisa de Python nem `pip install` local.
+  imagem e instala as dependências sozinho, não precisa de Python nem `pip install` local
+  pra rodar o servidor.
+- Python 3.12+ — só se você for gerar as chaves do `.env` localmente (próximo passo) ou
+  usar ferramentas locais (`psql`, etc).
+
+### Clonar o repositório e preparar o ambiente
+
+```bash
+git clone <url-do-repositório>
+cd "Trabalho G1 - Segurança"
+
+python -m venv venv
+venv\Scripts\activate      # Windows
+source venv/bin/activate   # Linux/Mac
+```
+
+O ambiente virtual aqui é opcional pro servidor em si (o Docker cuida de tudo sozinho), mas
+evita instalar qualquer coisa no Python global caso você precise rodar algum comando local
+(ex: gerar as chaves do `.env` no passo abaixo).
+
+### Configurar o `.env`
+
+```bash
+cp .env.example .env
+```
+
+Abra o `.env` e troque pelo menos estes valores antes de subir o servidor:
+
+- `POSTGRES_PASSWORD` e `APP_DB_PASSWORD` — senhas do banco (troque pelas suas, não deixe o
+  valor de exemplo).
+- `JWT_SECRET_KEY` — uma chave aleatória grande. Gere com:
+  ```bash
+  python -c "import secrets; print(secrets.token_hex(32))"
+  ```
+- `TOTP_ENCRYPTION_KEY` — cifra o segredo do 2FA (Google Authenticator) em repouso no
+  banco. Gere com:
+  ```bash
+  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  ```
+  (precisa da lib `cryptography` instalada no ambiente virtual acima: `pip install cryptography`)
+- `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` — dados do primeiro administrador
+  (usados só pelo `seed-admin`, mais abaixo). Senha precisa ter 8+ caracteres, 1 maiúscula
+  e 1 número; evite domínios `.test`/`.invalid`/`.localhost` no email.
+- `JWT_EXPIRE_MINUTES` — pode deixar `15` (padrão); só mexa se quiser testar a expiração de
+  sessão rapidamente (veja a seção de comandos).
 
 ### Subir o servidor
 
@@ -94,6 +138,21 @@ Para quem vai **usar o chat** ou **administrar usuários** — não precisa de D
 
 - Python 3.12+ — em toda máquina que vai rodar o **cliente**, incluindo a do servidor se
   você quiser testar localmente.
+
+### Clonar o repositório e preparar o ambiente
+
+```bash
+git clone <url-do-repositório>
+cd "Trabalho G1 - Segurança"
+
+python -m venv venv
+venv\Scripts\activate      # Windows
+source venv/bin/activate   # Linux/Mac
+```
+
+Crie o ambiente virtual antes de instalar qualquer coisa — evita misturar as dependências
+do chat com outros projetos Python que já estejam na sua máquina. Lembre de ativar o `venv`
+(o comando acima) toda vez que abrir um terminal novo pra rodar o cliente.
 
 ### Instalar as dependências
 
