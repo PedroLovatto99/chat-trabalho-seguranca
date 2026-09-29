@@ -141,7 +141,7 @@ Para quem vai **usar o chat** ou **administrar usuários** — não precisa de D
 
 ```bash
 git clone <url-do-repositório>
-cd "Trabalho G1 - Segurança"
+cd chat-trabalho-seguranca
 
 python -m venv venv
 venv\Scripts\activate      # Windows
