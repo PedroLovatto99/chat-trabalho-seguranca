@@ -27,7 +27,7 @@ Só quem vai **hospedar** a aplicação precisa desta parte.
 
 ```bash
 git clone <url-do-repositório>
-cd "Trabalho G1 - Segurança"
+cd chat-trabalho-seguranca
 
 python -m venv venv
 venv\Scripts\activate      # Windows
