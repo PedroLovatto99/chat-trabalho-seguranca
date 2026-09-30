@@ -169,11 +169,11 @@ python client.py
 ```
 
 O programa pede o endereço do servidor (Enter usa `localhost:8000` — se o servidor estiver
-em outro PC, digite o IP dele, ex: `192.168.1.50:8000`), depois **email** e senha — o login é
-por email, mas o servidor devolve o `username` junto do token, que é o que aparece pra todo
-mundo no chat (não precisa saber o email de quem quer conversar). Se a conta não existir,
-oferece criar na hora (pede usuário, email e senha — senha precisa ter 8+ caracteres, 1
-maiúscula e 1 número). Depois disso abre o chat.
+em outro PC, digite o IP dele, ex: `192.168.1.50:8000`), depois pergunta se é pra **entrar**
+numa conta já existente ou **criar conta nova** (pede usuário, email e senha — senha precisa
+ter 8+ caracteres, 1 maiúscula e 1 número). O login é por email, mas o servidor devolve o
+`username` junto do token, que é o que aparece pra todo mundo no chat (não precisa saber o
+email de quem quer conversar). Depois disso abre o chat.
 
 Se a conta tiver dois fatores ativado (veja `/doisfatores` abaixo), depois da senha certa o
 programa pede o código de 6 dígitos do Google Authenticator antes de liberar o login.

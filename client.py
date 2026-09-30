@@ -140,6 +140,19 @@ def login_or_register(base_url: str) -> tuple[str, str, bool]:
     chat) junto do token, então o usuário não precisa saber/digitar o próprio
     username de novo depois de logar."""
     while True:
+        escolha = input("[1] Entrar  [2] Criar conta nova (Enter = 1): ").strip() or "1"
+        if escolha in ("1", "2"):
+            break
+        print("[erro] digite 1 ou 2\n")
+
+    if escolha == "2":
+        email, password = register(base_url)
+        resp = _tentar_login(base_url, email, password)
+        resp.raise_for_status()
+        data = resp.json()
+        return data["username"], data["access_token"], data["mfa_ativo"]
+
+    while True:
         email = input("Email: ").strip()
         password = getpass.getpass("Senha: ")
 
@@ -149,26 +162,10 @@ def login_or_register(base_url: str) -> tuple[str, str, bool]:
             return data["username"], data["access_token"], data["mfa_ativo"]
 
         if resp.status_code == 401:
-            detail = resp.json().get("detail", "")
-            if "código" in detail:
-                print(f"[erro] {detail}\n")
-                continue
-        else:
-            print(f"[erro] login falhou: {_format_error(resp.json().get('detail', resp.text))}\n")
+            print(f"[erro] {resp.json().get('detail', '')}\n")
             continue
 
-        criar = input(
-            "Email/senha não encontrados. Criar uma conta nova? [s/N] "
-        ).strip().lower()
-        if criar != "s":
-            continue
-
-        email, password = register(base_url)
-
-        resp = _tentar_login(base_url, email, password)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["username"], data["access_token"], data["mfa_ativo"]
+        print(f"[erro] login falhou: {_format_error(resp.json().get('detail', resp.text))}\n")
 
 
 async def receiver(ws, known_users: dict, private_key, incoming_keys: dict, user_id: str):
