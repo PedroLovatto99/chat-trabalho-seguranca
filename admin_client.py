@@ -8,9 +8,6 @@ DEFAULT_SERVER = "localhost:8000"
 
 
 def _print_qr(otpauth_url: str) -> None:
-    """Desenha o QR code direto no terminal — o Google Authenticator escaneia
-    isso na tela normalmente. Se o terminal não suportar (encoding antigo),
-    não trava o fluxo — quem chama sempre mostra a chave manual também."""
     try:
         qr = qrcode.QRCode(border=1)
         qr.add_data(otpauth_url)
@@ -21,8 +18,6 @@ def _print_qr(otpauth_url: str) -> None:
 
 
 def _format_error(detail) -> str:
-    """Formata o corpo de erro do FastAPI — tanto {"detail": "texto"} quanto os erros
-    de validação do Pydantic ({"detail": [{"loc": [...], "msg": "..."}]})."""
     if isinstance(detail, list):
         partes = []
         for erro in detail:
@@ -33,9 +28,6 @@ def _format_error(detail) -> str:
 
 
 def _tentar_login(base_url: str, email: str, password: str) -> httpx.Response:
-    """POST /auth/login. Administrador sempre exige dois fatores — cuida do
-    segundo passo aqui mesmo (mostra a chave se for a primeira vez, pede o
-    código, reenvia) antes de devolver a resposta final pro chamador."""
     resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
     if resp.status_code != 200:
         return resp
@@ -117,8 +109,6 @@ def criar_admin(base_url: str, token: str) -> None:
 
 
 def trocar_senha(base_url: str, token: str) -> bool:
-    """Retorna True se a senha foi trocada (a sessão atual foi invalidada no
-    servidor, então quem chamou deve logar de novo)."""
     senha_atual = getpass.getpass("Senha atual: ")
     senha_nova = getpass.getpass("Nova senha (mín. 8, com 1 maiúscula e 1 número): ")
 

@@ -65,9 +65,6 @@ class SenhaAlterada(Exception):
 
 
 def _print_qr(otpauth_url: str) -> None:
-    """Desenha o QR code direto no terminal — o Google Authenticator escaneia
-    isso na tela normalmente. Se o terminal não suportar (encoding antigo),
-    não trava o fluxo — quem chama sempre mostra a chave manual também."""
     try:
         qr = qrcode.QRCode(border=1)
         qr.add_data(otpauth_url)
@@ -78,8 +75,6 @@ def _print_qr(otpauth_url: str) -> None:
 
 
 def _format_error(detail) -> str:
-    """Formata o corpo de erro do FastAPI — tanto {"detail": "texto"} quanto os erros
-    de validação do Pydantic ({"detail": [{"loc": [...], "msg": "..."}]})."""
     if isinstance(detail, list):
         partes = []
         for erro in detail:
@@ -90,9 +85,6 @@ def _format_error(detail) -> str:
 
 
 def register(base_url: str) -> tuple[str, str]:
-    """Formulário próprio de criação de conta — campos independentes da tentativa
-    de login que levou até aqui, para não reaproveitar usuário/senha silenciosamente.
-    Retorna (email, password), usados em seguida pra logar de verdade."""
     while True:
         username = input("Novo usuário (nome exibido no chat): ").strip()
         email = input("Email: ").strip()
@@ -109,9 +101,6 @@ def register(base_url: str) -> tuple[str, str]:
 
 
 def _tentar_login(base_url: str, email: str, password: str) -> httpx.Response:
-    """POST /auth/login. Se a conta tiver dois fatores, cuida do segundo passo
-    aqui mesmo (mostra a chave se for a primeira vez, pede o código, reenvia)
-    antes de devolver a resposta final pro chamador."""
     resp = httpx.post(f"{base_url}/auth/login", json={"email": email, "password": password})
     if resp.status_code != 200:
         return resp
@@ -136,9 +125,6 @@ def _tentar_login(base_url: str, email: str, password: str) -> httpx.Response:
 
 
 def login_or_register(base_url: str) -> tuple[str, str, bool]:
-    """Login é por email; o servidor devolve o username (usado como identidade no
-    chat) junto do token, então o usuário não precisa saber/digitar o próprio
-    username de novo depois de logar."""
     while True:
         escolha = input("[1] Entrar  [2] Criar conta nova (Enter = 1): ").strip() or "1"
         if escolha in ("1", "2"):

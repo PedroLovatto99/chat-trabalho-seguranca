@@ -16,9 +16,6 @@ def gerar_totp_secret() -> str:
 
 
 def cifrar_totp_secret(secret: str) -> str:
-    """Cifra o segredo TOTP antes de salvar no banco — diferente da senha, esse
-    segredo precisa ser recuperável (o servidor recalcula o código a cada login
-    pra comparar), então não dá pra usar hash, só cifragem reversível."""
     return _fernet.encrypt(secret.encode()).decode()
 
 
@@ -27,8 +24,6 @@ def decifrar_totp_secret(secret_cifrado: str) -> str:
 
 
 def totp_provisioning_uri(secret: str, email: str) -> str:
-    """URI otpauth:// — o Google Authenticator lê isso via QR code, ou o segredo
-    (`secret`) pode ser digitado manualmente em "inserir chave de configuração"."""
     return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name=ISSUER)
 
 
@@ -40,10 +35,6 @@ def verificar_totp_code(secret: str, code: str) -> bool:
 
 
 def print_qr_ascii(otpauth_url: str) -> None:
-    """Desenha o QR code direto no terminal (sem precisar salvar imagem) — o
-    Google Authenticator escaneia isso na tela normalmente. Se o terminal não
-    suportar (encoding antigo, saída redirecionada), não trava o fluxo — quem
-    chama sempre mostra a chave manual como alternativa."""
     try:
         qr = qrcode.QRCode(border=1)
         qr.add_data(otpauth_url)

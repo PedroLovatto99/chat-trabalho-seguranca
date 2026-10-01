@@ -151,8 +151,6 @@ async def ativar_mfa(
     usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Gera um segredo TOTP novo (não ativa nada ainda — só depois de confirmado
-    com /auth/mfa/confirmar o login passa a exigir o código)."""
     ip = request.client.host if request.client else None
     if usuario.role == UserRole.ADMINISTRADOR.value:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "administrador já tem dois fatores obrigatório")

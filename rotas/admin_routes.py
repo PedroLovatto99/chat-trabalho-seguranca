@@ -49,9 +49,6 @@ async def criar_admin(
         await db.commit()
         raise HTTPException(status.HTTP_409_CONFLICT, "email já cadastrado")
 
-    # Administrador tem dois fatores obrigatório desde a criação — o segredo já
-    # nasce pronto, sem passar pelo fluxo de ativar/confirmar do cliente (não tem
-    # como o próprio novo admin estar logado ainda pra confirmar nesse momento).
     secret = gerar_totp_secret()
     novo_admin = Usuario(
         username=data.username,

@@ -25,8 +25,6 @@ app.include_router(admin_router)
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
-    """Resposta em português pro limite de requisições (slowapi já devolveria
-    429, mas com mensagem em inglês por padrão)."""
     return JSONResponse(
         status_code=429,
         content={"detail": "muitas requisições em pouco tempo — aguarde um instante e tente de novo"},
@@ -35,20 +33,12 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    """Rede de segurança final: qualquer exceção não prevista (bug, erro de
-    banco, etc.) cai aqui em vez de vazar traceback/detalhes internos pro
-    cliente. O erro completo ainda é logado no servidor (`docker compose logs
-    server`) pra debugar depois."""
     logger.exception("erro não tratado em %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "erro interno do servidor"})
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Traduz os erros de validação do Pydantic para mensagens em português.
-    O email-validator (usado pelo EmailStr) sempre responde em inglês por padrão
-    ("value is not a valid email address..."), então trocamos essa mensagem
-    específica aqui em vez de expor o texto original ao usuário."""
     detail = []
     for erro in exc.errors():
         campo = erro["loc"][-1]
